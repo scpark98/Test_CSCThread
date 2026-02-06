@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include "SCThread.h"
+#include "Common/thread/CSCThread/SCThread.h"
 #include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
 
 // CTestCSCThreadDlg 대화 상자
@@ -17,6 +17,9 @@ public:
 	CSCThread	m_thread[3];
 	void		thread_function(int index, CSCThread& th);
 
+	static constexpr UINT WM_APP_LOG = WM_APP + 1;
+	afx_msg LRESULT on_log_message(WPARAM wParam, LPARAM lParam);
+
 	int			m_index = -1;
 	void		update_button_state();
 
@@ -24,6 +27,9 @@ public:
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_TEST_CSCTHREAD_DIALOG };
 #endif
+
+private:
+	void		post_log(CString msg);
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 지원입니다.
@@ -50,4 +56,6 @@ public:
 	afx_msg void OnBnClickedBtnStart();
 	afx_msg void OnBnClickedBtnPauseResume();
 	afx_msg void OnBnClickedBtnStop();
+	CComboBox m_combo_theme;
+	afx_msg void OnCbnSelchangeComboTheme();
 };

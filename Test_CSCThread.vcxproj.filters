@@ -36,9 +36,6 @@
     <ClInclude Include="pch.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="SCThread.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\ResizeCtrl.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -54,6 +51,9 @@
     <ClInclude Include="..\..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Common\thread\CSCThread\SCThread.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Test_CSCThread.cpp">
@@ -63,9 +63,6 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="SCThread.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\ResizeCtrl.cpp">
@@ -81,6 +78,9 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\thread\CSCThread\SCThread.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
