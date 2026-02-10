@@ -4,6 +4,9 @@
 
 #pragma once
 
+#include <functional>
+#include "Common/colors.h"
+#include "Common/ResizeCtrl.h"
 #include "Common/thread/CSCThread/SCThread.h"
 #include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
 
@@ -14,11 +17,14 @@ class CTestCSCThreadDlg : public CDialogEx
 public:
 	CTestCSCThreadDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
 
+	CResizeCtrl	m_resize;
+
 	CSCThread	m_thread[3];
 	void		thread_function(int index, CSCThread& th);
 
-	static constexpr UINT WM_APP_LOG = WM_APP + 1;
-	afx_msg LRESULT on_log_message(WPARAM wParam, LPARAM lParam);
+	static constexpr UINT WM_APP_UI_INVOKE = WM_APP + 2;
+	//afx_msg LRESULT on_log_message(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT on_ui_invoke(WPARAM wParam, LPARAM lParam);
 
 	int			m_index = -1;
 	void		update_button_state();
@@ -29,7 +35,9 @@ public:
 #endif
 
 private:
-	void		post_log(CString msg);
+	CSCColorTheme m_theme = CSCColorTheme(this);
+
+	void		invoke_ui(std::function<void()> func);
 
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 지원입니다.

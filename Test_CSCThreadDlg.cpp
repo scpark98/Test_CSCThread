@@ -79,7 +79,8 @@ BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_START, &CTestCSCThreadDlg::OnBnClickedBtnStart)
 	ON_BN_CLICKED(IDC_BUTTON_PAUSE, &CTestCSCThreadDlg::OnBnClickedBtnPauseResume)
 	ON_BN_CLICKED(IDC_BUTTON_STOP, &CTestCSCThreadDlg::OnBnClickedBtnStop)
-	ON_MESSAGE(WM_APP_LOG, &CTestCSCThreadDlg::on_log_message)
+	//ON_MESSAGE(WM_APP_LOG, &CTestCSCThreadDlg::on_log_message)
+	ON_MESSAGE(WM_APP_UI_INVOKE, &CTestCSCThreadDlg::on_ui_invoke)
 	ON_CBN_SELCHANGE(IDC_COMBO_THEME, &CTestCSCThreadDlg::OnCbnSelchangeComboTheme)
 END_MESSAGE_MAP()
 
@@ -116,6 +117,10 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+	m_resize.Create(this);
+	m_resize.Add(IDC_RICH, 0, 0, 100, 100);
+
+
 	RestoreWindowPosition(&theApp, this);
 
 	std::deque<CString> dq_color_theme;
@@ -130,30 +135,25 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
 
-//로그 메시지를 UI 스레드로 전달.
-//프로그램 종료 시 처리되지 않은 메시지가 있다면 memory leak이 발생할 수 있음.
-void CTestCSCThreadDlg::post_log(CString msg)
+void CTestCSCThreadDlg::invoke_ui(std::function<void()> func)
 {
-	// 다이얼로그가 아직 살아있는 경우만 큐잉
 	const HWND hWnd = GetSafeHwnd();
 	if (!::IsWindow(hWnd))
 		return;
 
-	auto* pstr = new CString(std::move(msg));
-	if (!::PostMessage(hWnd, WM_APP_LOG, 0, reinterpret_cast<LPARAM>(pstr)))
+	// 함수 객체를 힙에 올려서 lParam으로 전달
+	auto* pfunc = new std::function<void()>(std::move(func));
+	if (!::PostMessage(hWnd, WM_APP_UI_INVOKE, 0, reinterpret_cast<LPARAM>(pfunc)))
 	{
-		delete pstr;
+		delete pfunc;
 	}
 }
 
-LRESULT CTestCSCThreadDlg::on_log_message(WPARAM wParam, LPARAM lParam)
+LRESULT CTestCSCThreadDlg::on_ui_invoke(WPARAM wParam, LPARAM lParam)
 {
-	std::unique_ptr<CString> p(reinterpret_cast<CString*>(lParam)); // 자동 delete
-	const CString& msg = *p;
-
-	if (::IsWindow(m_rich.GetSafeHwnd()))
-		m_rich.add(-1, _T("%s"), msg);
-
+	std::unique_ptr<std::function<void()>> pfunc(
+		reinterpret_cast<std::function<void()>*>(lParam));
+	(*pfunc)();
 	return 0;
 }
 
@@ -163,18 +163,27 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 
 	while (!th.stop_requested())
 	{
-		str.Format(_T("thread %d is running...\n"), index);
-		post_log(str);
-		//m_rich.addl(-1, _T("thread %d is running..."), index);
-		TRACE(_T("%s"), str);
 		if (th.stop_requested())
 			break;
 		th.wait_if_paused();
+
+		str.Format(_T("thread %d is running...\n"), index);
+		//post_log(str);
+		//'=' 기호를 사용하면 외부 변수 그대로 사용가능하다.(안전 - 값이 복사되어 전달됨)
+		invoke_ui([=]()
+			{
+				m_rich.add(-1, _T("thread %d is running...\n"), index);
+			});
+		TRACE(_T("%s"), str);
+
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 	}
 
 	str.Format(_T("thread %d is terminated.\n"), index);
-	post_log(str);
+	invoke_ui([=]()
+		{
+			m_rich.add(-1, _T("%s"), str);
+		}); 
 	TRACE(_T("%s"), str);
 }
 
@@ -245,20 +254,13 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 	for (auto& t : m_thread)
 		t.stop();
 
-	// stop()이 join까지 수행하더라도, stop 직전에 워커가 PostMessage로 올린
-	// WM_APP_LOG가 메시지 큐에 남아있으면 on_log_message가 호출되지 못해
-	// lParam으로 전달된 CString*가 해제되지 못하고 누수가 발생할 수 있음.
+	// UI 스레드에 남아있는 모든 작업을 처리한 후 프로그램이 종료되어야 한다.
 	MSG msg;
-	while (::PeekMessage(&msg, GetSafeHwnd(), WM_APP_LOG, WM_APP_LOG, PM_REMOVE))
+	while (::PeekMessage(&msg, GetSafeHwnd(), WM_APP_UI_INVOKE, WM_APP_UI_INVOKE, PM_REMOVE))
 	{
-		if (msg.message == WM_APP_LOG)
-		{
-			delete reinterpret_cast<CString*>(msg.lParam);
-			continue;
-		}
-		::TranslateMessage(&msg);
-		::DispatchMessage(&msg);
+		delete reinterpret_cast<std::function<void()>*>(msg.lParam);
 	}
+
 
 	CDialogEx::OnCancel();
 }
@@ -306,7 +308,7 @@ void CTestCSCThreadDlg::OnBnClickedBtnStart()
 {
 	if (m_thread[m_index].is_running())
 	{
-		m_rich.addl(-1, _T("%d thread는 이미 실행 중인 스레드입니다."), m_index);
+		m_rich.addl(-1, _T("%d thread is already running thread. skip."), m_index);
 		return;
 	}
 
@@ -315,7 +317,7 @@ void CTestCSCThreadDlg::OnBnClickedBtnStart()
 			thread_function(m_index, th);
 		});
 
-	m_rich.addl(-1, _T("%d thread가 시작되었습니다."), m_index);
+	m_rich.addl(m_theme.cr_success, _T("%d thread started..."), m_index);
 	update_button_state();
 }
 
@@ -323,20 +325,20 @@ void CTestCSCThreadDlg::OnBnClickedBtnPauseResume()
 {
 	if (m_thread[m_index].is_stopped())
 	{
-		m_rich.addl(-1, _T("%d thread는 중지된 스레드입니다."), m_index);
+		m_rich.addl(-1, _T("%d thread is stopped thread. skip."), m_index);
 		return;
 	}
 
 	if (m_thread[m_index].is_paused())
 	{
 		m_thread[m_index].resume();
-		m_rich.addl(-1, _T("%d thread는 재개되었습니다."), m_index);
+		m_rich.addl(-1, _T("%d thread resumed."), m_index);
 		SetDlgItemText(IDC_BUTTON_PAUSE, _T("pause"));
 	}
 	else
 	{
 		m_thread[m_index].pause();
-		m_rich.addl(-1, _T("%d thread는 일시정지되었습니다."), m_index);
+		m_rich.addl(-1, _T("%d thread paused."), m_index);
 		SetDlgItemText(IDC_BUTTON_PAUSE, _T("resume"));
 	}
 	update_button_state();
@@ -346,12 +348,12 @@ void CTestCSCThreadDlg::OnBnClickedBtnStop()
 {
 	if (m_thread[m_index].is_stopped())
 	{
-		m_rich.addl(-1, _T("%d thread는 이미 중지된 스레드입니다."), m_index);
+		m_rich.addl(-1, _T("%d thread is stopped thread. skip."), m_index);
 		return;
 	}
 
 	m_thread[m_index].stop();
-	m_rich.addl(-1, _T("%d thread가 중지되었습니다."), m_index);
+	m_rich.addl(-1, _T("%d thread has stopped."), m_index);
 	update_button_state();
 }
 
