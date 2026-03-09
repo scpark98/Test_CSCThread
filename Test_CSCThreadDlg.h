@@ -21,9 +21,7 @@ public:
 	CResizeCtrl	m_resize;
 
 	void		thread_function(int index, CSCThread& th);
-
 	static constexpr UINT WM_APP_UI_INVOKE = WM_APP + 2;
-	//afx_msg LRESULT on_log_message(WPARAM wParam, LPARAM lParam);
 	afx_msg LRESULT on_ui_invoke(WPARAM wParam, LPARAM lParam);
 
 	int			m_index = -1;
