@@ -62,8 +62,8 @@ CTestCSCThreadDlg::CTestCSCThreadDlg(CWnd* pParent /*=nullptr*/)
 void CTestCSCThreadDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_RICH, m_rich);
-	DDX_Control(pDX, IDC_COMBO_THEME, m_combo_theme);
+	DDX_Control(pDX, IDC_LIST, m_list);
+	DDX_Control(pDX, IDC_BUTTON_ADD_NEW, m_button_add_new);
 }
 
 BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
@@ -73,15 +73,13 @@ BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
 	ON_BN_CLICKED(IDOK, &CTestCSCThreadDlg::OnBnClickedOk)
 	ON_BN_CLICKED(IDCANCEL, &CTestCSCThreadDlg::OnBnClickedCancel)
 	ON_WM_WINDOWPOSCHANGED()
-	ON_BN_CLICKED(IDC_RADIO_THREAD0, &CTestCSCThreadDlg::OnBnClickedRadioThread0)
-	ON_BN_CLICKED(IDC_RADIO_THREAD1, &CTestCSCThreadDlg::OnBnClickedRadioThread1)
-	ON_BN_CLICKED(IDC_RADIO_THREAD2, &CTestCSCThreadDlg::OnBnClickedRadioThread2)
 	ON_BN_CLICKED(IDC_BUTTON_START, &CTestCSCThreadDlg::OnBnClickedBtnStart)
 	ON_BN_CLICKED(IDC_BUTTON_PAUSE, &CTestCSCThreadDlg::OnBnClickedBtnPauseResume)
 	ON_BN_CLICKED(IDC_BUTTON_STOP, &CTestCSCThreadDlg::OnBnClickedBtnStop)
 	//ON_MESSAGE(WM_APP_LOG, &CTestCSCThreadDlg::on_log_message)
 	ON_MESSAGE(WM_APP_UI_INVOKE, &CTestCSCThreadDlg::on_ui_invoke)
-	ON_CBN_SELCHANGE(IDC_COMBO_THEME, &CTestCSCThreadDlg::OnCbnSelchangeComboTheme)
+	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW, &CTestCSCThreadDlg::OnBnClickedButtonAddNew)
+	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST, &CTestCSCThreadDlg::OnLvnItemChangedList)
 END_MESSAGE_MAP()
 
 
@@ -118,21 +116,71 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 	m_resize.Create(this);
-	m_resize.Add(IDC_RICH, 0, 0, 100, 100);
+	m_resize.Add(IDC_LIST, 0, 0, 100, 100);
+	m_resize.Add(IDC_BUTTON_ADD_NEW, 0, 100, 0, 0);
+	m_resize.Add(IDC_BUTTON_START, 0, 100, 0, 0);
+	m_resize.Add(IDC_BUTTON_PAUSE, 0, 100, 0, 0);
+	m_resize.Add(IDC_BUTTON_STOP, 0, 100, 0, 0);
 
+	int color_theme = AfxGetApp()->GetProfileInt(_T("setting\\m_list"), _T("color theme"), CSCColorTheme::color_theme_default);
+
+	init_list();
+	m_list.set_color_theme(color_theme);
+
+	m_button_add_new.set_auto_repeat_delay(1, 10);
+	m_button_add_new.draw_3D_rect();
 
 	RestoreWindowPosition(&theApp, this);
 
-	std::deque<CString> dq_color_theme;
-	CSCColorTheme::get_color_theme_list(dq_color_theme);
-	for (auto theme_name : dq_color_theme)
-		m_combo_theme.AddString(theme_name);
-
-	int color_theme = AfxGetApp()->GetProfileInt(_T("setting\\m_rich"), _T("color theme"), CSCColorTheme::color_theme_default);
-	m_combo_theme.SetCurSel(color_theme);
-	m_rich.set_color_theme(color_theme);
-
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
+}
+
+void CTestCSCThreadDlg::init_list()
+{
+	m_list.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+
+	m_list.set_headings(_T("no,50;time,80;status,100;progress,100;log,500"));
+
+	m_list.set_font_size(theApp.GetProfileInt(_T("list"), _T("font size"), 9));
+	m_list.set_font_name(theApp.GetProfileString(_T("list"), _T("font name"), _T("맑은 고딕")));
+
+	m_list.set_default_text_color(Gdiplus::Color::Gray);
+
+	m_list.set_column_data_type(col_progress, CVtListCtrlEx::column_data_type_progress);
+
+	m_list.restore_column_width(&theApp, _T("list"));
+	m_list.set_header_height(24);
+	m_list.set_line_height(20);
+
+	m_list.set_edit_readonly();
+	m_list.show_auto_scroll_button();
+}
+
+void CTestCSCThreadDlg::add_list(LPCTSTR lpszFormat, ...)
+{
+	CString new_text;
+	va_list args;
+	va_start(args, lpszFormat);
+	new_text.FormatV(lpszFormat, args);
+
+	add_list(m_list.m_theme.cr_text, new_text);
+}
+
+void CTestCSCThreadDlg::add_list(Gdiplus::Color cr, LPCTSTR lpszFormat, ...)
+{
+	CString new_text;
+	va_list args;
+	va_start(args, lpszFormat);
+	new_text.FormatV(lpszFormat, args);
+
+	int index = m_list.add_item(i2S(m_list.size()));
+	m_list.set_text(index, col_time, get_cur_datetime_str(1, true, _T(""), true, true, true), false);
+	m_list.set_text(index, col_log, new_text, false);
+
+	if ((int)cr.GetValue() != -1)
+	{
+		m_list.set_text_color(index, col_log, cr);
+	}
 }
 
 void CTestCSCThreadDlg::invoke_ui(std::function<void()> func)
@@ -160,29 +208,53 @@ LRESULT CTestCSCThreadDlg::on_ui_invoke(WPARAM wParam, LPARAM lParam)
 void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 {
 	CString str;
+	int progress = 0;
+	bool forward = true;
 
 	while (!th.stop_requested())
 	{
 		if (th.stop_requested())
 			break;
+
 		th.wait_if_paused();
 
-		str.Format(_T("thread %d is running...\n"), index);
-		//post_log(str);
+		str.Format(_T("thread %d is running... pos = %d\n"), index, progress);
+
+		//invoke_ui()로 묶어주면 UI 관련 코드들을 안전하게 호출하여 사용할 수 있다.
 		//'=' 기호를 사용하면 외부 변수 그대로 사용가능하다.(안전 - 값이 복사되어 전달됨)
 		invoke_ui([=]()
 			{
-				m_rich.add(-1, _T("thread %d is running...\n"), index);
+				m_list.set_text(index, col_progress, i2S(progress));
 			});
-		TRACE(_T("%s"), str);
 
-		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+		//이 샘플 프로젝트에서 수백개의 thread를 생성하여 돌릴 경우 딜레이를 100이 아닌 10으로 줄 경우
+		//message queue에 너무 많은 메시지가 쌓여서 UI가 느리게 반응하는 현상이 발생할 수 있다. (WM_APP_UI_INVOKE 메시지가 너무 많이 쌓이는 것)
+		std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
+		if (forward)
+		{
+			progress++;
+			if (progress > 100)
+			{
+				progress = 100;
+				forward = false;
+			}
+		}
+		else
+		{
+			progress--;
+			if (progress < 0)
+			{
+				progress = 0;
+				forward = true;
+			}
+		}
 	}
 
 	str.Format(_T("thread %d is terminated.\n"), index);
 	invoke_ui([=]()
 		{
-			m_rich.add(-1, _T("%s"), str);
+			//add_list(Gdiplus::Color::Blue, _T("%s"), str);
 		}); 
 	TRACE(_T("%s"), str);
 }
@@ -251,8 +323,13 @@ void CTestCSCThreadDlg::OnBnClickedOk()
 void CTestCSCThreadDlg::OnBnClickedCancel()
 {
 	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	for (auto& t : m_thread)
-		t.stop();
+	for (int i = 0; i < m_list.size(); ++i)
+	{
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
+		if (th)
+			th->stop();
+		delete th;
+	}
 
 	// UI 스레드에 남아있는 모든 작업을 처리한 후 프로그램이 종료되어야 한다.
 	MSG msg;
@@ -272,7 +349,7 @@ void CTestCSCThreadDlg::OnWindowPosChanged(WINDOWPOS* lpwndpos)
 	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
 	SaveWindowPosition(&theApp, this);
 }
-
+/*
 void CTestCSCThreadDlg::OnBnClickedRadioThread0()
 {
 	m_index = 0;
@@ -291,78 +368,151 @@ void CTestCSCThreadDlg::OnBnClickedRadioThread2()
 	m_index = 2;
 	update_button_state();
 }
-
+*/
 void CTestCSCThreadDlg::update_button_state()
 {
-	GetDlgItem(IDC_BUTTON_START)->EnableWindow(m_thread[m_index].is_stopped());
-	GetDlgItem(IDC_BUTTON_PAUSE)->EnableWindow(!m_thread[m_index].is_stopped());
-	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(m_thread[m_index].is_running() || m_thread[m_index].is_paused());
-
-	if (!m_thread[m_index].is_stopped())
+	int index = m_list.get_selected_index();
+	if (index < 0)
 	{
-		SetDlgItemText(IDC_BUTTON_PAUSE, m_thread[m_index].is_running() ? _T("pause") : _T("resume"));
+		GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_PAUSE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
+		return;
 	}
+	CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(index));
+	GetDlgItem(IDC_BUTTON_START)->EnableWindow(!th->is_running());
+	GetDlgItem(IDC_BUTTON_PAUSE)->EnableWindow(!th->is_stopped());
+	GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(th->is_running() || th->is_paused());
+
+	if (!th->is_stopped())
+	{
+		SetDlgItemText(IDC_BUTTON_PAUSE, th->is_running() ? _T("pause") : _T("resume"));
+	}
+}
+
+void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
+{
+	CSCThread* th = new CSCThread();
+	int index = m_list.insert_item(-1, i2S(m_list.size()));
+	m_list.SetItemData(index, (DWORD_PTR)th);
+	th->start([=](CSCThread& t)
+		{
+			m_list.set_text(index, col_status, _T("start"));
+			thread_function(index, t);
+		});
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnStart()
 {
-	if (m_thread[m_index].is_running())
+	std::deque<int> selected;
+	m_list.get_selected_items(&selected);
+
+	if (selected.size() == 0)
 	{
-		m_rich.addl(-1, _T("%d thread is already running thread. skip."), m_index);
+		GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_PAUSE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 		return;
 	}
 
-	m_thread[m_index].start([this](CSCThread& th)
-		{
-			thread_function(m_index, th);
-		});
+	for (int i : selected)
+	{
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
 
-	m_rich.addl(m_theme.cr_success, _T("%d thread started..."), m_index);
+		if (th->is_running())
+		{
+			m_list.set_text(i, col_log, _T("already running thread"));
+			return;
+		}
+
+		m_list.set_text(i, col_log, _T(""));
+
+		th->start([=](CSCThread& t)
+			{
+				thread_function(i, t);
+			});
+
+		m_list.set_text(i, col_status, _T("start"));
+	}
+
 	update_button_state();
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnPauseResume()
 {
-	if (m_thread[m_index].is_stopped())
+	std::deque<int> selected;
+	m_list.get_selected_items(&selected);
+
+	if (selected.size() == 0)
 	{
-		m_rich.addl(-1, _T("%d thread is stopped thread. skip."), m_index);
+		GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_PAUSE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 		return;
 	}
 
-	if (m_thread[m_index].is_paused())
+	for (int i : selected)
 	{
-		m_thread[m_index].resume();
-		m_rich.addl(-1, _T("%d thread resumed."), m_index);
-		SetDlgItemText(IDC_BUTTON_PAUSE, _T("pause"));
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
+
+		if (th->is_stopped())
+		{
+			m_list.set_text(i, col_log, _T("already stopped thread."));
+			return;
+		}
+
+		if (th->is_paused())
+		{
+			th->resume();
+			m_list.set_text(i, col_status, _T("resumed"));
+			SetDlgItemText(IDC_BUTTON_PAUSE, _T("pause"));
+		}
+		else
+		{
+			th->pause();
+			m_list.set_text(i, col_status, _T("paused"));
+			SetDlgItemText(IDC_BUTTON_PAUSE, _T("resume"));
+		}
 	}
-	else
-	{
-		m_thread[m_index].pause();
-		m_rich.addl(-1, _T("%d thread paused."), m_index);
-		SetDlgItemText(IDC_BUTTON_PAUSE, _T("resume"));
-	}
+
 	update_button_state();
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnStop()
 {
-	if (m_thread[m_index].is_stopped())
+	std::deque<int> selected;
+	m_list.get_selected_items(&selected);
+
+	if (selected.size() == 0)
 	{
-		m_rich.addl(-1, _T("%d thread is stopped thread. skip."), m_index);
+		GetDlgItem(IDC_BUTTON_START)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_PAUSE)->EnableWindow(FALSE);
+		GetDlgItem(IDC_BUTTON_STOP)->EnableWindow(FALSE);
 		return;
 	}
 
-	m_thread[m_index].stop();
-	m_rich.addl(-1, _T("%d thread has stopped."), m_index);
+	for (int i : selected)
+	{
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
+
+		if (th->is_stopped())
+		{
+			m_list.set_text(i, col_log, _T("already stopped thread"));
+			return;
+		}
+
+		th->stop();
+		m_list.set_text(i, col_status, _T("stopped"));
+	}
+
 	update_button_state();
 }
 
-void CTestCSCThreadDlg::OnCbnSelchangeComboTheme()
+void CTestCSCThreadDlg::OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult)
 {
-	int index = m_combo_theme.GetCurSel();
-	if (index < 0 || index >= m_combo_theme.GetCount())
-		return;
+	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
+	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
+	update_button_state();
 
-	theApp.WriteProfileInt(_T("setting\\m_rich"), _T("color theme"), index);
-	m_rich.set_color_theme(index, true);
+	*pResult = 0;
 }

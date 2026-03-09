@@ -37,9 +37,6 @@ CTestCSCThreadApp theApp;
 
 BOOL CTestCSCThreadApp::InitInstance()
 {
-	// TODO: richedit2 라이브러리를 초기화하려면 AfxInitRichEdit2()을(를) 호출합니다.\n"
-	AfxInitRichEdit2();
-
 	// Windows XP에서는 InitCommonControlsEx()를 필요로 합니다.
 	// 사용하도록 지정하는 경우, Windows XP 상에서 반드시 InitCommonControlsEx()가 필요합니다.
 	// InitCommonControlsEx()를 사용하지 않으면 창을 만들 수 없습니다.

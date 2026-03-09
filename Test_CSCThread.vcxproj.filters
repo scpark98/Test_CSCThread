@@ -16,6 +16,9 @@
     <Filter Include="Common">
       <UniqueIdentifier>{6b6cc18f-04fe-4b31-80a7-fb244f985321}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Common\VtListCtrlEx">
+      <UniqueIdentifier>{e75b76a1-9bda-41b0-8c83-b0e2145b673d}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Test_CSCThread.h">
@@ -48,10 +51,25 @@
     <ClInclude Include="..\..\Common\Functions.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.h">
+    <ClInclude Include="..\..\Common\thread\CSCThread\SCThread.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\thread\CSCThread\SCThread.h">
+    <ClInclude Include="..\..\Common\CListCtrl\CVtListCtrlEx\HeaderCtrlEx.h">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\CListCtrl\CVtListCtrlEx\list_data.h">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\CListCtrl\CVtListCtrlEx\VtListCtrlEx.h">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\CButton\GdiButton\GdiButton.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\system\ShellImageList\ShellImageList.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\CEdit\SCEdit\SCEdit.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -77,10 +95,25 @@
     <ClCompile Include="..\..\Common\Functions.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\CEdit\RichEditCtrlEx\RichEditCtrlEx.cpp">
+    <ClCompile Include="..\..\Common\thread\CSCThread\SCThread.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\thread\CSCThread\SCThread.cpp">
+    <ClCompile Include="..\..\Common\CListCtrl\CVtListCtrlEx\list_data.cpp">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\CListCtrl\CVtListCtrlEx\VtListCtrlEx.cpp">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\CListCtrl\CVtListCtrlEx\HeaderCtrlEx.cpp">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\CButton\GdiButton\GdiButton.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\system\ShellImageList\ShellImageList.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\CEdit\SCEdit\SCEdit.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
@@ -98,5 +131,11 @@
     <Image Include="res\Test_CSCThread.ico">
       <Filter>리소스 파일</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\..\Common\CListCtrl\CVtListCtrlEx\readme.txt">
+      <Filter>Common\VtListCtrlEx</Filter>
+    </Text>
+    <Text Include="readme.txt" />
   </ItemGroup>
 </Project>

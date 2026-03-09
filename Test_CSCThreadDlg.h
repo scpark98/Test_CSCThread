@@ -8,7 +8,8 @@
 #include "Common/colors.h"
 #include "Common/ResizeCtrl.h"
 #include "Common/thread/CSCThread/SCThread.h"
-#include "Common/CEdit/RichEditCtrlEx/RichEditCtrlEx.h"
+#include "Common/CListCtrl/CVtListCtrlEx/VtListCtrlEx.h"
+#include "Common/CButton/GdiButton/GdiButton.h"
 
 // CTestCSCThreadDlg 대화 상자
 class CTestCSCThreadDlg : public CDialogEx
@@ -19,7 +20,6 @@ public:
 
 	CResizeCtrl	m_resize;
 
-	CSCThread	m_thread[3];
 	void		thread_function(int index, CSCThread& th);
 
 	static constexpr UINT WM_APP_UI_INVOKE = WM_APP + 2;
@@ -39,6 +39,18 @@ private:
 
 	void		invoke_ui(std::function<void()> func);
 
+	enum LIST_COLUMN
+	{
+		col_no = 0,
+		col_time,
+		col_status,
+		col_progress,
+		col_log,
+	};
+	void		init_list();
+	void		add_list(LPCTSTR lpszFormat, ...);
+	void		add_list(Gdiplus::Color cr, LPCTSTR lpszFormat, ...);
+
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 지원입니다.
 
@@ -57,13 +69,11 @@ public:
 	afx_msg void OnBnClickedOk();
 	afx_msg void OnBnClickedCancel();
 	afx_msg void OnWindowPosChanged(WINDOWPOS* lpwndpos);
-	CRichEditCtrlEx m_rich;
-	afx_msg void OnBnClickedRadioThread0();
-	afx_msg void OnBnClickedRadioThread1();
-	afx_msg void OnBnClickedRadioThread2();
 	afx_msg void OnBnClickedBtnStart();
 	afx_msg void OnBnClickedBtnPauseResume();
 	afx_msg void OnBnClickedBtnStop();
-	CComboBox m_combo_theme;
-	afx_msg void OnCbnSelchangeComboTheme();
+	CVtListCtrlEx m_list;
+	afx_msg void OnBnClickedButtonAddNew();
+	afx_msg void OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult);
+	CGdiButton m_button_add_new;
 };
