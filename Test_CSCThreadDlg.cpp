@@ -326,8 +326,8 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 	for (int i = 0; i < m_list.size(); ++i)
 	{
 		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
-		if (th)
-			th->stop();
+		//if (th)
+		//	th->stop();
 		delete th;
 	}
 
