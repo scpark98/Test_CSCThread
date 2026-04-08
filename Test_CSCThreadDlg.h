@@ -74,4 +74,6 @@ public:
 	afx_msg void OnBnClickedButtonAddNew();
 	afx_msg void OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult);
 	CGdiButton m_button_add_new;
+	CButton m_button_add_new_100;
+	afx_msg void OnBnClickedButtonAddNew100();
 };

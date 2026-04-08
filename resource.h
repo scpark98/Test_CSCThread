@@ -17,8 +17,9 @@
 #define IDC_BTN_STOP                    1005
 #define IDC_BUTTON_STOP                 1005
 #define IDC_RICHEDIT_LOG                1006
-#define IDC_BUTTON_START2               1006
 #define IDC_BUTTON_ADD_NEW              1006
+#define IDC_BUTTON_ADD_NEW2             1007
+#define IDC_BUTTON_ADD_NEW_100          1007
 #define IDC_LIST                        1009
 
 // Next default values for new objects

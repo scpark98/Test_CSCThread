@@ -64,6 +64,7 @@ void CTestCSCThreadDlg::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Control(pDX, IDC_LIST, m_list);
 	DDX_Control(pDX, IDC_BUTTON_ADD_NEW, m_button_add_new);
+	DDX_Control(pDX, IDC_BUTTON_ADD_NEW_100, m_button_add_new_100);
 }
 
 BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
@@ -80,6 +81,7 @@ BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
 	ON_MESSAGE(WM_APP_UI_INVOKE, &CTestCSCThreadDlg::on_ui_invoke)
 	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW, &CTestCSCThreadDlg::OnBnClickedButtonAddNew)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST, &CTestCSCThreadDlg::OnLvnItemChangedList)
+	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW_100, &CTestCSCThreadDlg::OnBnClickedButtonAddNew100)
 END_MESSAGE_MAP()
 
 
@@ -118,6 +120,7 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	m_resize.Create(this);
 	m_resize.Add(IDC_LIST, 0, 0, 100, 100);
 	m_resize.Add(IDC_BUTTON_ADD_NEW, 0, 100, 0, 0);
+	m_resize.Add(IDC_BUTTON_ADD_NEW_100, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_START, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_PAUSE, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_STOP, 0, 100, 0, 0);
@@ -329,6 +332,7 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 		//if (th)
 		//	th->stop();
 		delete th;
+		TRACE(_T("thread %d is deleted.\n"), i);
 	}
 
 	// UI 스레드에 남아있는 모든 작업을 처리한 후 프로그램이 종료되어야 한다.
@@ -400,6 +404,13 @@ void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
 			m_list.set_text(index, col_status, _T("start"));
 			thread_function(index, t);
 		});
+}
+
+
+void CTestCSCThreadDlg::OnBnClickedButtonAddNew100()
+{
+	for (int i = 0; i < 100; i++)
+		OnBnClickedButtonAddNew();
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnStart()
