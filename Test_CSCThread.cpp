@@ -31,7 +31,7 @@ CTestCSCThreadApp::CTestCSCThreadApp()
 // 유일한 CTestCSCThreadApp 개체입니다.
 
 CTestCSCThreadApp theApp;
-
+CSCLog gLog;
 
 // CTestCSCThreadApp 초기화
 
@@ -67,6 +67,11 @@ BOOL CTestCSCThreadApp::InitInstance()
 	// TODO: 이 문자열을 회사 또는 조직의 이름과 같은
 	// 적절한 내용으로 수정해야 합니다.
 	SetRegistryKey(_T("로컬 애플리케이션 마법사에서 생성된 애플리케이션"));
+
+	gLog.use_filename_timestamp();
+	gLog.show_function_name(false);
+	gLog.show_line_number(false);
+	gLog.write_start_log();
 
 	CTestCSCThreadDlg dlg;
 	m_pMainWnd = &dlg;

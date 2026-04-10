@@ -62,9 +62,9 @@ CTestCSCThreadDlg::CTestCSCThreadDlg(CWnd* pParent /*=nullptr*/)
 void CTestCSCThreadDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Control(pDX, IDC_LIST, m_list);
 	DDX_Control(pDX, IDC_BUTTON_ADD_NEW, m_button_add_new);
-	DDX_Control(pDX, IDC_BUTTON_ADD_NEW_100, m_button_add_new_100);
+	DDX_Control(pDX, IDC_BUTTON_ADD_NEW_N, m_button_add_new_n);
+	DDX_Control(pDX, IDC_EDIT_INSTANCE, m_edit_instance);
 }
 
 BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
@@ -77,11 +77,9 @@ BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_START, &CTestCSCThreadDlg::OnBnClickedBtnStart)
 	ON_BN_CLICKED(IDC_BUTTON_PAUSE, &CTestCSCThreadDlg::OnBnClickedBtnPauseResume)
 	ON_BN_CLICKED(IDC_BUTTON_STOP, &CTestCSCThreadDlg::OnBnClickedBtnStop)
-	//ON_MESSAGE(WM_APP_LOG, &CTestCSCThreadDlg::on_log_message)
 	ON_MESSAGE(WM_APP_UI_INVOKE, &CTestCSCThreadDlg::on_ui_invoke)
 	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW, &CTestCSCThreadDlg::OnBnClickedButtonAddNew)
-	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST, &CTestCSCThreadDlg::OnLvnItemChangedList)
-	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW_100, &CTestCSCThreadDlg::OnBnClickedButtonAddNew100)
+	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW_N, &CTestCSCThreadDlg::OnBnClickedButtonAddNewN)
 END_MESSAGE_MAP()
 
 
@@ -117,73 +115,30 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 작은 아이콘을 설정합니다.
 
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
+	m_heatmap.create(this);
+	m_heatmap.set_back_color(Gdiplus::Color::White);
+	m_heatmap.set_cell_num(20, 10);
+
 	m_resize.Create(this);
-	m_resize.Add(IDC_LIST, 0, 0, 100, 100);
 	m_resize.Add(IDC_BUTTON_ADD_NEW, 0, 100, 0, 0);
-	m_resize.Add(IDC_BUTTON_ADD_NEW_100, 0, 100, 0, 0);
+	m_resize.Add(IDC_EDIT_INSTANCE, 0, 100, 0, 0);
+	m_resize.Add(IDC_BUTTON_ADD_NEW_N, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_START, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_PAUSE, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_STOP, 0, 100, 0, 0);
 
 	int color_theme = AfxGetApp()->GetProfileInt(_T("setting\\m_list"), _T("color theme"), CSCColorTheme::color_theme_default);
 
-	init_list();
-	m_list.set_color_theme(color_theme);
-
 	m_button_add_new.set_auto_repeat_delay(1, 10);
 	m_button_add_new.draw_3D_rect();
 
 	RestoreWindowPosition(&theApp, this);
 
+	CString caption;
+	caption.Format(_T("Test_CSCThread (ver %s)"), get_file_property());
+	SetWindowText(caption);
+
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
-}
-
-void CTestCSCThreadDlg::init_list()
-{
-	m_list.SetExtendedStyle(LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
-
-	m_list.set_headings(_T("no,50;time,80;status,100;progress,100;log,500"));
-
-	m_list.set_font_size(theApp.GetProfileInt(_T("list"), _T("font size"), 9));
-	m_list.set_font_name(theApp.GetProfileString(_T("list"), _T("font name"), _T("맑은 고딕")));
-
-	m_list.set_default_text_color(Gdiplus::Color::Gray);
-
-	m_list.set_column_data_type(col_progress, CVtListCtrlEx::column_data_type_progress);
-
-	m_list.restore_column_width(&theApp, _T("list"));
-	m_list.set_header_height(24);
-	m_list.set_line_height(20);
-
-	m_list.set_edit_readonly();
-	m_list.show_auto_scroll_button();
-}
-
-void CTestCSCThreadDlg::add_list(LPCTSTR lpszFormat, ...)
-{
-	CString new_text;
-	va_list args;
-	va_start(args, lpszFormat);
-	new_text.FormatV(lpszFormat, args);
-
-	add_list(m_list.m_theme.cr_text, new_text);
-}
-
-void CTestCSCThreadDlg::add_list(Gdiplus::Color cr, LPCTSTR lpszFormat, ...)
-{
-	CString new_text;
-	va_list args;
-	va_start(args, lpszFormat);
-	new_text.FormatV(lpszFormat, args);
-
-	int index = m_list.add_item(i2S(m_list.size()));
-	m_list.set_text(index, col_time, get_cur_datetime_str(1, true, _T(""), true, true, true), false);
-	m_list.set_text(index, col_log, new_text, false);
-
-	if ((int)cr.GetValue() != -1)
-	{
-		m_list.set_text_color(index, col_log, cr);
-	}
 }
 
 void CTestCSCThreadDlg::invoke_ui(std::function<void()> func)
@@ -213,6 +168,9 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 	CString str;
 	int progress = 0;
 	bool forward = true;
+	int success_count = 0;
+	int fail_count = 0;
+	int first_run = true;
 
 	while (!th.stop_requested())
 	{
@@ -221,19 +179,80 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 
 		th.wait_if_paused();
 
+		if (first_run)
+		{
+			int first_delay = random19937(1000, 18000);
+			// 인터럽트 가능한 sleep: 종료 요청 시 즉시 탈출
+			if (!th.sleep_for(std::chrono::milliseconds(first_delay)))
+				break;
+			first_run = false;
+		}
+
 		str.Format(_T("thread %d is running... pos = %d\n"), index, progress);
+		trace(str);
+
+		//CRequestUrlParams param(_T("192.168.0.78"), 8088, _T("/agent/api/v1.0/server"), _T("GET"), false);
+		CRequestUrlParams param(_T("dev-admin.linkmemine.com"), 443, _T("/agent/api/v1.0/server"), _T("GET"), true);
+
+		if (IsShiftPressed())
+		{
+			param.ip = _T("3.37.146.200");
+			param.port = 80;
+		}
+
+		param.timeout_ms = 3000000;
+		
+		// ★ 취소 콜백 등록: request_stop() 시 WinInet 핸들을 닫아 즉시 탈출
+		th.set_on_cancel([&param]() { param.cancel(); });
+
+		request_url(&param);
+		th.clear_on_cancel();
+
+		// 취소로 인한 종료 체크
+		if (th.stop_requested())
+			break;
+
+		if (param.status == HTTP_STATUS_OK)
+			str.Format(_T("index = %5d, status = %d"), index, param.status, param.result);
+		else
+			str.Format(_T("index = %5d, status = %d, result = %s"), index, param.status, param.result);
+		logWrite(_T("%s"), str);
 
 		//invoke_ui()로 묶어주면 UI 관련 코드들을 안전하게 호출하여 사용할 수 있다.
-		//'=' 기호를 사용하면 외부 변수 그대로 사용가능하다.(안전 - 값이 복사되어 전달됨)
-		invoke_ui([=]()
+		//'=' 기호를 사용하면 외부 변수를 값 복사해서 가져온다.
+		//'&' 기호를 사용하면 외부 변수를 참조로 가져온다. (참조로 가져오면 UI 스레드에서 해당 변수에 접근 가능)
+		invoke_ui([&]()
 			{
-				m_list.set_text(index, col_progress, i2S(progress));
+				CString text;
+
+				if (param.status == HTTP_STATUS_OK)
+				{
+					success_count++;
+					//m_list.set_text_color(index, col_log, Gdiplus::Color::Blue);
+					//m_list.set_text(index, col_log, param.result);
+				}
+				else
+				{
+					fail_count++;
+					if (fail_count == 1)
+						;// m_list.set_text_color(index, col_log, Gdiplus::Color::Red);
+					//text.Format(_T("status = %d, result = %s"), param.status, param.result);
+					//m_list.set_text_color(index, col_log, Gdiplus::Color::Red);
+					//m_list.set_text(index, col_log, text);
+				}
+				text.Format(_T("%d success, %d failed"), success_count, fail_count);
+				//m_list.set_text(index, col_log, text);
 			});
 
 		//이 샘플 프로젝트에서 수백개의 thread를 생성하여 돌릴 경우 딜레이를 100이 아닌 10으로 줄 경우
 		//message queue에 너무 많은 메시지가 쌓여서 UI가 느리게 반응하는 현상이 발생할 수 있다. (WM_APP_UI_INVOKE 메시지가 너무 많이 쌓이는 것)
-		std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
+		//std::this_thread::sleep_for(std::chrono::milliseconds(10000));
+		// 인터럽트 가능한 sleep: 종료 요청 시 즉시 탈출
+		if (!th.sleep_for(std::chrono::milliseconds(5000)))
+			break;
+
+		/*
 		if (forward)
 		{
 			progress++;
@@ -252,12 +271,12 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 				forward = true;
 			}
 		}
+		*/
 	}
 
 	str.Format(_T("thread %d is terminated.\n"), index);
 	invoke_ui([=]()
 		{
-			//add_list(Gdiplus::Color::Blue, _T("%s"), str);
 		}); 
 	TRACE(_T("%s"), str);
 }
@@ -325,13 +344,19 @@ void CTestCSCThreadDlg::OnBnClickedOk()
 
 void CTestCSCThreadDlg::OnBnClickedCancel()
 {
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	for (int i = 0; i < m_list.size(); ++i)
+	// 1단계: 모든 스레드에 중지 신호를 동시에 보낸다 (비차단)
+	for (int i = 0; i < m_heatmap.size(); ++i)
 	{
-		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
-		//if (th)
-		//	th->stop();
-		delete th;
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_heatmap.get_cell_data(i));
+		if (th)
+			th->request_stop();
+	}
+
+	// 2단계: 모든 스레드가 종료될 때까지 대기 후 삭제
+	for (int i = 0; i < m_heatmap.size(); ++i)
+	{
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_heatmap.get_cell_data(i));
+		delete th;  // ~CSCThread()에서 stop() → join() 호출
 		TRACE(_T("thread %d is deleted.\n"), i);
 	}
 
@@ -341,7 +366,6 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 	{
 		delete reinterpret_cast<std::function<void()>*>(msg.lParam);
 	}
-
 
 	CDialogEx::OnCancel();
 }
@@ -375,6 +399,7 @@ void CTestCSCThreadDlg::OnBnClickedRadioThread2()
 */
 void CTestCSCThreadDlg::update_button_state()
 {
+	/*
 	int index = m_list.get_selected_index();
 	if (index < 0)
 	{
@@ -392,10 +417,14 @@ void CTestCSCThreadDlg::update_button_state()
 	{
 		SetDlgItemText(IDC_BUTTON_PAUSE, th->is_running() ? _T("pause") : _T("resume"));
 	}
+	*/
 }
 
 void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
 {
+	/*
+	m_list.SetRedraw(FALSE);
+
 	CSCThread* th = new CSCThread();
 	int index = m_list.insert_item(-1, i2S(m_list.size()));
 	m_list.SetItemData(index, (DWORD_PTR)th);
@@ -404,13 +433,31 @@ void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
 			m_list.set_text(index, col_status, _T("start"));
 			thread_function(index, t);
 		});
+
+	m_list.SetRedraw(TRUE);
+	*/
 }
 
 
-void CTestCSCThreadDlg::OnBnClickedButtonAddNew100()
+void CTestCSCThreadDlg::OnBnClickedButtonAddNewN()
 {
-	for (int i = 0; i < 100; i++)
+	int n = m_edit_instance.get_int();
+	if (n <= 0 || n > 5000)
+	{
+		AfxMessageBox(_T("valid number : 1 ~ 5000"));
+		return;
+	}
+
+	if (IsShiftPressed())
+		SetWindowText(_T("3.37.146.200"));
+	else
+		SetWindowText(_T("dev-admin.linkmemine.com"));
+
+	for (int i = 0; i < n; i++)
+	{
+		//Wait(10);
 		OnBnClickedButtonAddNew();
+	}
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnStart()
@@ -502,6 +549,7 @@ void CTestCSCThreadDlg::OnBnClickedBtnStop()
 		return;
 	}
 
+	// 1단계: 모든 선택된 스레드에 중지 신호 (비차단)
 	for (int i : selected)
 	{
 		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
@@ -509,10 +557,18 @@ void CTestCSCThreadDlg::OnBnClickedBtnStop()
 		if (th->is_stopped())
 		{
 			m_list.set_text(i, col_log, _T("already stopped thread"));
-			return;
+			continue;
 		}
 
-		th->stop();
+		th->request_stop();
+		m_list.set_text(i, col_status, _T("stopping..."));
+	}
+
+	// 2단계: 종료 대기 (모든 스레드가 병렬로 종료 중이므로 빠름)
+	for (int i : selected)
+	{
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_list.GetItemData(i));
+		th->join();
 		m_list.set_text(i, col_status, _T("stopped"));
 	}
 

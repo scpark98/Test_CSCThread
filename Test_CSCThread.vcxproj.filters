@@ -16,9 +16,6 @@
     <Filter Include="Common">
       <UniqueIdentifier>{6b6cc18f-04fe-4b31-80a7-fb244f985321}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Common\VtListCtrlEx">
-      <UniqueIdentifier>{e75b76a1-9bda-41b0-8c83-b0e2145b673d}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Test_CSCThread.h">
@@ -54,15 +51,6 @@
     <ClInclude Include="..\..\Common\thread\CSCThread\SCThread.h">
       <Filter>Common</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\CListCtrl\CVtListCtrlEx\HeaderCtrlEx.h">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\CListCtrl\CVtListCtrlEx\list_data.h">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Common\CListCtrl\CVtListCtrlEx\VtListCtrlEx.h">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\CButton\GdiButton\GdiButton.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -70,6 +58,12 @@
       <Filter>Common</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\CEdit\SCEdit\SCEdit.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\log\SCLog\SCLog.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\CDialog\CSCHeatmapCtrl\SCHeatmapCtrl.h">
       <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
@@ -98,15 +92,6 @@
     <ClCompile Include="..\..\Common\thread\CSCThread\SCThread.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Common\CListCtrl\CVtListCtrlEx\list_data.cpp">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Common\CListCtrl\CVtListCtrlEx\VtListCtrlEx.cpp">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\Common\CListCtrl\CVtListCtrlEx\HeaderCtrlEx.cpp">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Common\CButton\GdiButton\GdiButton.cpp">
       <Filter>Common</Filter>
     </ClCompile>
@@ -114,6 +99,12 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\CEdit\SCEdit\SCEdit.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\log\SCLog\SCLog.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\CDialog\CSCHeatmapCtrl\SCHeatmapCtrl.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>
@@ -133,9 +124,6 @@
     </Image>
   </ItemGroup>
   <ItemGroup>
-    <Text Include="..\..\Common\CListCtrl\CVtListCtrlEx\readme.txt">
-      <Filter>Common\VtListCtrlEx</Filter>
-    </Text>
     <Text Include="readme.txt" />
   </ItemGroup>
 </Project>

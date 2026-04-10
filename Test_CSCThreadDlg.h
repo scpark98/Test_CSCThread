@@ -7,9 +7,11 @@
 #include <functional>
 #include "Common/colors.h"
 #include "Common/ResizeCtrl.h"
+#include "Common/CEdit/SCEdit/SCEdit.h"
 #include "Common/thread/CSCThread/SCThread.h"
-#include "Common/CListCtrl/CVtListCtrlEx/VtListCtrlEx.h"
 #include "Common/CButton/GdiButton/GdiButton.h"
+#include "Common/CDialog/CSCHeatmapCtrl/SCHeatmapCtrl.h"
+
 
 // CTestCSCThreadDlg 대화 상자
 class CTestCSCThreadDlg : public CDialogEx
@@ -18,14 +20,15 @@ class CTestCSCThreadDlg : public CDialogEx
 public:
 	CTestCSCThreadDlg(CWnd* pParent = nullptr);	// 표준 생성자입니다.
 
-	CResizeCtrl	m_resize;
+	CResizeCtrl			m_resize;
+	CSCHeatmapCtrl		m_heatmap;
 
-	void		thread_function(int index, CSCThread& th);
+	void				thread_function(int index, CSCThread& th);
 	static constexpr UINT WM_APP_UI_INVOKE = WM_APP + 2;
-	afx_msg LRESULT on_ui_invoke(WPARAM wParam, LPARAM lParam);
+	afx_msg LRESULT		on_ui_invoke(WPARAM wParam, LPARAM lParam);
 
-	int			m_index = -1;
-	void		update_button_state();
+	int					m_index = -1;
+	void				update_button_state();
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
@@ -70,10 +73,9 @@ public:
 	afx_msg void OnBnClickedBtnStart();
 	afx_msg void OnBnClickedBtnPauseResume();
 	afx_msg void OnBnClickedBtnStop();
-	CVtListCtrlEx m_list;
 	afx_msg void OnBnClickedButtonAddNew();
-	afx_msg void OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult);
 	CGdiButton m_button_add_new;
-	CButton m_button_add_new_100;
-	afx_msg void OnBnClickedButtonAddNew100();
+	CButton m_button_add_new_n;
+	afx_msg void OnBnClickedButtonAddNewN();
+	CSCEdit m_edit_instance;
 };
