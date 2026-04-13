@@ -71,15 +71,16 @@ BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
 	ON_WM_SYSCOMMAND()
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_WM_WINDOWPOSCHANGED()
 	ON_BN_CLICKED(IDOK, &CTestCSCThreadDlg::OnBnClickedOk)
 	ON_BN_CLICKED(IDCANCEL, &CTestCSCThreadDlg::OnBnClickedCancel)
-	ON_WM_WINDOWPOSCHANGED()
 	ON_BN_CLICKED(IDC_BUTTON_START, &CTestCSCThreadDlg::OnBnClickedBtnStart)
 	ON_BN_CLICKED(IDC_BUTTON_PAUSE, &CTestCSCThreadDlg::OnBnClickedBtnPauseResume)
 	ON_BN_CLICKED(IDC_BUTTON_STOP, &CTestCSCThreadDlg::OnBnClickedBtnStop)
 	ON_MESSAGE(WM_APP_UI_INVOKE, &CTestCSCThreadDlg::on_ui_invoke)
 	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW, &CTestCSCThreadDlg::OnBnClickedButtonAddNew)
 	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW_N, &CTestCSCThreadDlg::OnBnClickedButtonAddNewN)
+	ON_WM_SIZE()
 END_MESSAGE_MAP()
 
 
@@ -117,7 +118,6 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	// TODO: 여기에 추가 초기화 작업을 추가합니다.
 	m_heatmap.create(this);
 	m_heatmap.set_back_color(Gdiplus::Color::White);
-	m_heatmap.set_cell_num(20, 10);
 
 	m_resize.Create(this);
 	m_resize.Add(IDC_BUTTON_ADD_NEW, 0, 100, 0, 0);
@@ -137,6 +137,10 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	CString caption;
 	caption.Format(_T("Test_CSCThread (ver %s)"), get_file_property());
 	SetWindowText(caption);
+
+	int instance_number = AfxGetApp()->GetProfileInt(_T("setting"), _T("instance number"), 0);
+	if (instance_number > 0)
+		m_edit_instance.SetWindowText(i2S(instance_number));
 
 	return TRUE;  // 포커스를 컨트롤에 설정하지 않으면 TRUE를 반환합니다.
 }
@@ -188,17 +192,7 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 			first_run = false;
 		}
 
-		str.Format(_T("thread %d is running... pos = %d\n"), index, progress);
-		trace(str);
-
-		//CRequestUrlParams param(_T("192.168.0.78"), 8088, _T("/agent/api/v1.0/server"), _T("GET"), false);
-		CRequestUrlParams param(_T("dev-admin.linkmemine.com"), 443, _T("/agent/api/v1.0/server"), _T("GET"), true);
-
-		if (IsShiftPressed())
-		{
-			param.ip = _T("3.37.146.200");
-			param.port = 80;
-		}
+		CRequestUrlParams param(m_server_url, m_server_port, _T("/agent/api/v1.0/server"), _T("GET"), false);
 
 		param.timeout_ms = 3000000;
 		
@@ -212,7 +206,7 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 		if (th.stop_requested())
 			break;
 
-		if (param.status == HTTP_STATUS_OK)
+		if (param.status == HTTP_STATUS_OK || param.status == HTTP_STATUS_NOT_FOUND)
 			str.Format(_T("index = %5d, status = %d"), index, param.status, param.result);
 		else
 			str.Format(_T("index = %5d, status = %d, result = %s"), index, param.status, param.result);
@@ -226,24 +220,45 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 				CString text;
 
 				if (param.status == HTTP_STATUS_OK)
-				{
 					success_count++;
-					//m_list.set_text_color(index, col_log, Gdiplus::Color::Blue);
-					//m_list.set_text(index, col_log, param.result);
-				}
 				else
 				{
 					fail_count++;
 					if (fail_count == 1)
-						;// m_list.set_text_color(index, col_log, Gdiplus::Color::Red);
-					//text.Format(_T("status = %d, result = %s"), param.status, param.result);
-					//m_list.set_text_color(index, col_log, Gdiplus::Color::Red);
-					//m_list.set_text(index, col_log, text);
+						m_heatmap.set_cell_border_color(index, Gdiplus::Color::Red);
 				}
-				text.Format(_T("%d success, %d failed"), success_count, fail_count);
-				//m_list.set_text(index, col_log, text);
-			});
 
+				int total = success_count + fail_count;
+
+				// 누적 횟수에 따른 채도 (1회=연한색, max_count회 이상=원색)
+				const int max_count = 20;
+
+				if (success_count >= fail_count)
+				{
+					// 성공 우세: 연한 파랑(200,215,245) → RoyalBlue(65,105,225)
+					float t = min(1.0f, (float)success_count / max_count);
+					BYTE r = (BYTE)(200 - (200 - 65) * t);
+					BYTE g = (BYTE)(215 - (215 - 105) * t);
+					BYTE b = (BYTE)(245 - (245 - 225) * t);
+					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b));
+				}
+				else
+				{
+					// 실패 우세: 연한 빨강(255,200,200) → Red(255,0,0)
+					float t = min(1.0f, (float)fail_count / max_count);
+					BYTE r = (BYTE)(255);
+					BYTE g = (BYTE)(200 - 200 * t);
+					BYTE b = (BYTE)(200 - 200 * t);
+					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b));
+				}
+
+				if (param.status == HTTP_STATUS_OK)
+					text.Format(_T("%d/%d"), success_count, total);
+				else
+					text.Format(_T("%d/%d (last status = %d)"), success_count, total, param.status);
+
+				m_heatmap.set_cell_text(index, text);
+			});
 		//이 샘플 프로젝트에서 수백개의 thread를 생성하여 돌릴 경우 딜레이를 100이 아닌 10으로 줄 경우
 		//message queue에 너무 많은 메시지가 쌓여서 UI가 느리게 반응하는 현상이 발생할 수 있다. (WM_APP_UI_INVOKE 메시지가 너무 많이 쌓이는 것)
 
@@ -347,7 +362,7 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 	// 1단계: 모든 스레드에 중지 신호를 동시에 보낸다 (비차단)
 	for (int i = 0; i < m_heatmap.size(); ++i)
 	{
-		CSCThread* th = reinterpret_cast<CSCThread*>(m_heatmap.get_cell_data(i));
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_heatmap.get_item_data(i));
 		if (th)
 			th->request_stop();
 	}
@@ -355,7 +370,7 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 	// 2단계: 모든 스레드가 종료될 때까지 대기 후 삭제
 	for (int i = 0; i < m_heatmap.size(); ++i)
 	{
-		CSCThread* th = reinterpret_cast<CSCThread*>(m_heatmap.get_cell_data(i));
+		CSCThread* th = reinterpret_cast<CSCThread*>(m_heatmap.get_item_data(i));
 		delete th;  // ~CSCThread()에서 stop() → join() 호출
 		TRACE(_T("thread %d is deleted.\n"), i);
 	}
@@ -422,10 +437,18 @@ void CTestCSCThreadDlg::update_button_state()
 
 void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
 {
-	/*
-	m_list.SetRedraw(FALSE);
-
 	CSCThread* th = new CSCThread();
+
+	int index = m_heatmap.add_cell(1);
+	m_heatmap.set_item_data(index, (DWORD_PTR)th);
+
+	th->start([=](CSCThread& t)
+		{
+			//m_list.set_text(index, col_status, _T("start"));
+			thread_function(index, t);
+		});
+
+	/*
 	int index = m_list.insert_item(-1, i2S(m_list.size()));
 	m_list.SetItemData(index, (DWORD_PTR)th);
 	th->start([=](CSCThread& t)
@@ -442,26 +465,45 @@ void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
 void CTestCSCThreadDlg::OnBnClickedButtonAddNewN()
 {
 	int n = m_edit_instance.get_int();
-	if (n <= 0 || n > 5000)
+	if (n <= 0 || n > 10000)
 	{
-		AfxMessageBox(_T("valid number : 1 ~ 5000"));
+		AfxMessageBox(_T("valid number : 1 ~ 10000"));
 		return;
 	}
 
+	AfxGetApp()->WriteProfileInt(_T("setting"), _T("instance number"), n);
+
 	if (IsShiftPressed())
-		SetWindowText(_T("3.37.146.200"));
+	{
+		m_server_url = _T("3.37.146.200");
+		m_server_port = 80;
+	}
 	else
-		SetWindowText(_T("dev-admin.linkmemine.com"));
+	{
+		m_server_url = _T("dev-admin.linkmemine.com");
+		m_server_port = 443;
+	}
+
+	logWrite(_T("target server : %s:%d"), m_server_url, m_server_port);
+	
+	CString caption;
+	caption.Format(_T("Test_CSCThread (ver %s) - server : %s:%d"), get_file_property(), m_server_url, m_server_port);
+	SetWindowText(caption);
+
+	m_heatmap.set_redraw(false);
 
 	for (int i = 0; i < n; i++)
 	{
-		//Wait(10);
 		OnBnClickedButtonAddNew();
 	}
+
+	m_heatmap.set_redraw(true);
+	m_heatmap.Invalidate();
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnStart()
 {
+	/*
 	std::deque<int> selected;
 	m_list.get_selected_items(&selected);
 
@@ -494,10 +536,12 @@ void CTestCSCThreadDlg::OnBnClickedBtnStart()
 	}
 
 	update_button_state();
+	*/
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnPauseResume()
 {
+	/*
 	std::deque<int> selected;
 	m_list.get_selected_items(&selected);
 
@@ -534,10 +578,12 @@ void CTestCSCThreadDlg::OnBnClickedBtnPauseResume()
 	}
 
 	update_button_state();
+	*/
 }
 
 void CTestCSCThreadDlg::OnBnClickedBtnStop()
 {
+	/*
 	std::deque<int> selected;
 	m_list.get_selected_items(&selected);
 
@@ -573,13 +619,19 @@ void CTestCSCThreadDlg::OnBnClickedBtnStop()
 	}
 
 	update_button_state();
+	*/
 }
 
-void CTestCSCThreadDlg::OnLvnItemChangedList(NMHDR* pNMHDR, LRESULT* pResult)
+void CTestCSCThreadDlg::OnSize(UINT nType, int cx, int cy)
 {
-	LPNMLISTVIEW pNMLV = reinterpret_cast<LPNMLISTVIEW>(pNMHDR);
-	// TODO: 여기에 컨트롤 알림 처리기 코드를 추가합니다.
-	update_button_state();
+	CDialogEx::OnSize(nType, cx, cy);
 
-	*pResult = 0;
+	// TODO: 여기에 메시지 처리기 코드를 추가합니다.
+	if (m_heatmap.GetSafeHwnd() == nullptr)
+		return;
+
+	CRect rc;
+	GetClientRect(&rc);
+	rc.bottom -= 50;  // 버튼 영역 확보
+	m_heatmap.MoveWindow(rc);
 }

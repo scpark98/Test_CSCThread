@@ -30,6 +30,9 @@ public:
 	int					m_index = -1;
 	void				update_button_state();
 
+	CString				m_server_url;
+	int					m_server_port;
+
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
 	enum { IDD = IDD_TEST_CSCTHREAD_DIALOG };
@@ -78,4 +81,5 @@ public:
 	CButton m_button_add_new_n;
 	afx_msg void OnBnClickedButtonAddNewN();
 	CSCEdit m_edit_instance;
+	afx_msg void OnSize(UINT nType, int cx, int cy);
 };
