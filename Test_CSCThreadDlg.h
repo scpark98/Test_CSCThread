@@ -32,6 +32,7 @@ public:
 
 	CString				m_server_url;
 	int					m_server_port;
+	CServerReachabilityCache m_reachability_cache{ 3000 };
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME

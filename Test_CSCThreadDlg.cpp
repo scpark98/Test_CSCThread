@@ -175,6 +175,7 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 	int success_count = 0;
 	int fail_count = 0;
 	int first_run = true;
+	int consecutive_success = 0;		// ★ 연속 성공 횟수
 
 	while (!th.stop_requested())
 	{
@@ -185,21 +186,41 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 
 		if (first_run)
 		{
-			int first_delay = random19937(1000, 18000);
+			int first_delay = random19937(1000, 6000);
 			// 인터럽트 가능한 sleep: 종료 요청 시 즉시 탈출
 			if (!th.sleep_for(std::chrono::milliseconds(first_delay)))
 				break;
 			first_run = false;
 		}
 
-		CRequestUrlParams param(m_server_url, m_server_port, _T("/agent/api/v1.0/server"), _T("GET"), false);
+		//kms_connect(_T("apple"), _T("1234"), )
 
-		param.timeout_ms = 3000000;
-		
-		// ★ 취소 콜백 등록: request_stop() 시 WinInet 핸들을 닫아 즉시 탈출
+		CRequestUrlParams param(m_server_url, m_server_port, _T("/agent/api/v1.0/server"), _T("GET"));
+		//보통은 연결타임아웃은 5초, 전송 타임아웃은 30초가 기본값이며 일반적인 경우는 문제없으나
+		//이 테스트 프로젝트에서는 최대 5000개의 스레드를 동시에 구동하니 내부적으로 대기열이 발생되고
+		//이로인한 타임아웃이 발생한다.
+		//claude는 connect_timeout_ms을 2000으로만 해도 문제없다고 하나 이 값으로 설정할 경우
+		//다수의 스레드에서 타임아웃이 발생한다.
+		param.connect_timeout_ms = 3000000;
+		param.transfer_timeout_ms = 3000000;
+
 		th.set_on_cancel([&param]() { param.cancel(); });
 
-		request_url(&param);
+		if (!m_reachability_cache.is_reachable(m_server_url, m_server_port, 1000))
+		{
+			param.status = 0;
+			param.result = _T("server unreachable (cached)");
+		}
+		else
+		{
+			m_reachability_cache.register_request(&param);   // ★ 등록
+			request_url(&param, false);
+			m_reachability_cache.unregister_request(&param); // ★ 해제
+
+			// 결과 피드백
+			m_reachability_cache.update(param.status > 0);
+		}
+
 		th.clear_on_cancel();
 
 		// 취소로 인한 종료 체크
@@ -220,36 +241,45 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 				CString text;
 
 				if (param.status == HTTP_STATUS_OK)
+				{
 					success_count++;
+					consecutive_success++;		// ★ 연속 성공 누적
+				}
 				else
 				{
 					fail_count++;
+					consecutive_success = 0;	// ★ 실패 시 리셋
+
 					if (fail_count == 1)
-						m_heatmap.set_cell_border_color(index, Gdiplus::Color::Red);
+						m_heatmap.set_cell_border_color(index, Gdiplus::Color::Red, false);
 				}
+
+				// ★ 연속 3회 성공하면 border 제거 (서버 복구 확인)
+				if (consecutive_success >= 3 && fail_count > 0)
+					m_heatmap.set_cell_border_color(index, Gdiplus::Color::Transparent, false);
 
 				int total = success_count + fail_count;
 
 				// 누적 횟수에 따른 채도 (1회=연한색, max_count회 이상=원색)
-				const int max_count = 20;
+				const int max_count = 10;
 
-				if (success_count >= fail_count)
+				if (param.status == HTTP_STATUS_OK)
 				{
-					// 성공 우세: 연한 파랑(200,215,245) → RoyalBlue(65,105,225)
+					// 성공 우세: 연한 하늘색(240,248,255) → Blue(0, 0, 255)
 					float t = min(1.0f, (float)success_count / max_count);
-					BYTE r = (BYTE)(200 - (200 - 65) * t);
-					BYTE g = (BYTE)(215 - (215 - 105) * t);
-					BYTE b = (BYTE)(245 - (245 - 225) * t);
-					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b));
+					BYTE r = (BYTE)(240 - (240 - 0) * t);
+					BYTE g = (BYTE)(248 - (248 - 0) * t);
+					BYTE b = (BYTE)(255 - (255 - 255) * t);
+					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b), false);
 				}
 				else
 				{
-					// 실패 우세: 연한 빨강(255,200,200) → Red(255,0,0)
+					// 실패 우세: 연한 핑크(255,240,245) → Red(255,0,0)
 					float t = min(1.0f, (float)fail_count / max_count);
 					BYTE r = (BYTE)(255);
-					BYTE g = (BYTE)(200 - 200 * t);
-					BYTE b = (BYTE)(200 - 200 * t);
-					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b));
+					BYTE g = (BYTE)(240 - 240 * t);
+					BYTE b = (BYTE)(245 - 245 * t);
+					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b), false);
 				}
 
 				if (param.status == HTTP_STATUS_OK)
@@ -257,7 +287,8 @@ void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 				else
 					text.Format(_T("%d/%d (last status = %d)"), success_count, total, param.status);
 
-				m_heatmap.set_cell_text(index, text);
+				m_heatmap.set_cell_text(index, i2S(success_count), false);
+				m_heatmap.set_cell_tooltip(index, text);
 			});
 		//이 샘플 프로젝트에서 수백개의 thread를 생성하여 돌릴 경우 딜레이를 100이 아닌 10으로 줄 경우
 		//message queue에 너무 많은 메시지가 쌓여서 UI가 느리게 반응하는 현상이 발생할 수 있다. (WM_APP_UI_INVOKE 메시지가 너무 많이 쌓이는 것)
@@ -475,7 +506,7 @@ void CTestCSCThreadDlg::OnBnClickedButtonAddNewN()
 
 	if (IsShiftPressed())
 	{
-		m_server_url = _T("3.37.146.200");
+		m_server_url = _T("admin.linkmemine.com");
 		m_server_port = 80;
 	}
 	else
