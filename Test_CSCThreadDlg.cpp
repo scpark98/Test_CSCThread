@@ -15,6 +15,13 @@
 #define new DEBUG_NEW
 #endif
 
+// kms_connect 하드코딩 테스트 계정 (LINKMEMINE 빌드)
+namespace
+{
+	const TCHAR* const kms_test_id = _T("apple");
+	const TCHAR* const kms_test_pw = _T("1234");
+}
+
 
 // 응용 프로그램 정보에 사용되는 CAboutDlg 대화 상자입니다.
 
@@ -65,6 +72,7 @@ void CTestCSCThreadDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_BUTTON_ADD_NEW, m_button_add_new);
 	DDX_Control(pDX, IDC_BUTTON_ADD_NEW_N, m_button_add_new_n);
 	DDX_Control(pDX, IDC_EDIT_INSTANCE, m_edit_instance);
+	DDX_Control(pDX, IDC_COMBO_SERVER, m_combo_server);
 }
 
 BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
@@ -81,6 +89,8 @@ BEGIN_MESSAGE_MAP(CTestCSCThreadDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW, &CTestCSCThreadDlg::OnBnClickedButtonAddNew)
 	ON_BN_CLICKED(IDC_BUTTON_ADD_NEW_N, &CTestCSCThreadDlg::OnBnClickedButtonAddNewN)
 	ON_WM_SIZE()
+	ON_BN_CLICKED(IDC_BUTTON_LOG_OUT, &CTestCSCThreadDlg::OnBnClickedButtonLogOut)
+	ON_CBN_SELCHANGE(IDC_COMBO_SERVER, &CTestCSCThreadDlg::OnCbnSelchangeComboServer)
 END_MESSAGE_MAP()
 
 
@@ -119,18 +129,40 @@ BOOL CTestCSCThreadDlg::OnInitDialog()
 	m_heatmap.create(this);
 	m_heatmap.set_back_color(Gdiplus::Color::White);
 
+	// 이전에 Shift+Wheel로 조정했던 셀 크기 복원
+	{
+		CSize current = m_heatmap.get_cell_size();
+		int saved_cx = AfxGetApp()->GetProfileInt(_T("setting\\heatmap"), _T("cell_size_cx"), current.cx);
+		int saved_cy = AfxGetApp()->GetProfileInt(_T("setting\\heatmap"), _T("cell_size_cy"), current.cy);
+		if (saved_cx > 0 && saved_cy > 0)
+			m_heatmap.set_cell_size(saved_cx, saved_cy);
+	}
+
 	m_resize.Create(this);
 	m_resize.Add(IDC_BUTTON_ADD_NEW, 0, 100, 0, 0);
 	m_resize.Add(IDC_EDIT_INSTANCE, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_ADD_NEW_N, 0, 100, 0, 0);
+	m_resize.Add(IDC_BUTTON_LOG_OUT, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_START, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_PAUSE, 0, 100, 0, 0);
 	m_resize.Add(IDC_BUTTON_STOP, 0, 100, 0, 0);
-
+	m_resize.Add(IDC_COMBO_SERVER, 0, 100, 0, 0);
 	int color_theme = AfxGetApp()->GetProfileInt(_T("setting\\m_list"), _T("color theme"), CSCColorTheme::color_theme_default);
 
 	m_button_add_new.set_auto_repeat_delay(1, 10);
 	m_button_add_new.draw_3D_rect();
+
+	m_combo_server.set_line_height(14);
+	m_combo_server.AddString(_T("lmm 1.0 개발서버 (3.37.146.200)"));
+	m_combo_server.AddString(_T("lmm 1.0 부하테스트 (13.209.200.4)"));
+	m_combo_server.AddString(_T("lmm 1.0 FastAPI (15.164.75.123)"));
+	{
+		int saved = AfxGetApp()->GetProfileInt(_T("setting\\server"), _T("index"), 0);
+		if (saved < 0 || saved >= m_combo_server.GetCount())
+			saved = 0;
+		m_combo_server.SetCurSel(saved);
+		apply_server_selection(saved);
+	}
 
 	RestoreWindowPosition(&theApp, this);
 
@@ -170,160 +202,116 @@ LRESULT CTestCSCThreadDlg::on_ui_invoke(WPARAM wParam, LPARAM lParam)
 void CTestCSCThreadDlg::thread_function(int index, CSCThread& th)
 {
 	CString str;
-	int progress = 0;
-	bool forward = true;
-	int success_count = 0;
-	int fail_count = 0;
-	int first_run = true;
-	int consecutive_success = 0;		// ★ 연속 성공 횟수
+	CString device_id = LMMAgent::GenerateDeviceId(index);
 
-	while (!th.stop_requested())
+	// 최초 진입 시 분산 딜레이 (스파이크 완화)
 	{
-		if (th.stop_requested())
-			break;
-
-		th.wait_if_paused();
-
-		if (first_run)
-		{
-			int first_delay = random19937(1000, 6000);
-			// 인터럽트 가능한 sleep: 종료 요청 시 즉시 탈출
-			if (!th.sleep_for(std::chrono::milliseconds(first_delay)))
-				break;
-			first_run = false;
-		}
-
-		//kms_connect(_T("apple"), _T("1234"), )
-
-		CRequestUrlParams param(m_server_url, m_server_port, _T("/agent/api/v1.0/server"), _T("GET"));
-		//보통은 연결타임아웃은 5초, 전송 타임아웃은 30초가 기본값이며 일반적인 경우는 문제없으나
-		//이 테스트 프로젝트에서는 최대 5000개의 스레드를 동시에 구동하니 내부적으로 대기열이 발생되고
-		//이로인한 타임아웃이 발생한다.
-		//claude는 connect_timeout_ms을 2000으로만 해도 문제없다고 하나 이 값으로 설정할 경우
-		//다수의 스레드에서 타임아웃이 발생한다.
-		param.connect_timeout_ms = 3000000;
-		param.transfer_timeout_ms = 3000000;
-
-		th.set_on_cancel([&param]() { param.cancel(); });
-
-		if (!m_reachability_cache.is_reachable(m_server_url, m_server_port, 1000))
-		{
-			param.status = 0;
-			param.result = _T("server unreachable (cached)");
-		}
-		else
-		{
-			m_reachability_cache.register_request(&param);   // ★ 등록
-			request_url(&param, false);
-			m_reachability_cache.unregister_request(&param); // ★ 해제
-
-			// 결과 피드백
-			m_reachability_cache.update(param.status > 0);
-		}
-
-		th.clear_on_cancel();
-
-		// 취소로 인한 종료 체크
-		if (th.stop_requested())
-			break;
-
-		if (param.status == HTTP_STATUS_OK || param.status == HTTP_STATUS_NOT_FOUND)
-			str.Format(_T("index = %5d, status = %d"), index, param.status, param.result);
-		else
-			str.Format(_T("index = %5d, status = %d, result = %s"), index, param.status, param.result);
-		logWrite(_T("%s"), str);
-
-		//invoke_ui()로 묶어주면 UI 관련 코드들을 안전하게 호출하여 사용할 수 있다.
-		//'=' 기호를 사용하면 외부 변수를 값 복사해서 가져온다.
-		//'&' 기호를 사용하면 외부 변수를 참조로 가져온다. (참조로 가져오면 UI 스레드에서 해당 변수에 접근 가능)
-		invoke_ui([&]()
-			{
-				CString text;
-
-				if (param.status == HTTP_STATUS_OK)
-				{
-					success_count++;
-					consecutive_success++;		// ★ 연속 성공 누적
-				}
-				else
-				{
-					fail_count++;
-					consecutive_success = 0;	// ★ 실패 시 리셋
-
-					if (fail_count == 1)
-						m_heatmap.set_cell_border_color(index, Gdiplus::Color::Red, false);
-				}
-
-				// ★ 연속 3회 성공하면 border 제거 (서버 복구 확인)
-				if (consecutive_success >= 3 && fail_count > 0)
-					m_heatmap.set_cell_border_color(index, Gdiplus::Color::Transparent, false);
-
-				int total = success_count + fail_count;
-
-				// 누적 횟수에 따른 채도 (1회=연한색, max_count회 이상=원색)
-				const int max_count = 10;
-
-				if (param.status == HTTP_STATUS_OK)
-				{
-					// 성공 우세: 연한 하늘색(240,248,255) → Blue(0, 0, 255)
-					float t = min(1.0f, (float)success_count / max_count);
-					BYTE r = (BYTE)(240 - (240 - 0) * t);
-					BYTE g = (BYTE)(248 - (248 - 0) * t);
-					BYTE b = (BYTE)(255 - (255 - 255) * t);
-					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b), false);
-				}
-				else
-				{
-					// 실패 우세: 연한 핑크(255,240,245) → Red(255,0,0)
-					float t = min(1.0f, (float)fail_count / max_count);
-					BYTE r = (BYTE)(255);
-					BYTE g = (BYTE)(240 - 240 * t);
-					BYTE b = (BYTE)(245 - 245 * t);
-					m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b), false);
-				}
-
-				if (param.status == HTTP_STATUS_OK)
-					text.Format(_T("%d/%d"), success_count, total);
-				else
-					text.Format(_T("%d/%d (last status = %d)"), success_count, total, param.status);
-
-				m_heatmap.set_cell_text(index, i2S(success_count), false);
-				m_heatmap.set_cell_tooltip(index, text);
-			});
-		//이 샘플 프로젝트에서 수백개의 thread를 생성하여 돌릴 경우 딜레이를 100이 아닌 10으로 줄 경우
-		//message queue에 너무 많은 메시지가 쌓여서 UI가 느리게 반응하는 현상이 발생할 수 있다. (WM_APP_UI_INVOKE 메시지가 너무 많이 쌓이는 것)
-
-		//std::this_thread::sleep_for(std::chrono::milliseconds(10000));
-		// 인터럽트 가능한 sleep: 종료 요청 시 즉시 탈출
-		if (!th.sleep_for(std::chrono::milliseconds(5000)))
-			break;
-
-		/*
-		if (forward)
-		{
-			progress++;
-			if (progress > 100)
-			{
-				progress = 100;
-				forward = false;
-			}
-		}
-		else
-		{
-			progress--;
-			if (progress < 0)
-			{
-				progress = 0;
-				forward = true;
-			}
-		}
-		*/
+		int first_delay = random19937(1000, 10000);
+		if (!th.sleep_for(std::chrono::milliseconds(first_delay)))
+			return;
 	}
 
-	str.Format(_T("thread %d is terminated.\n"), index);
-	invoke_ui([=]()
+	// ===== Phase 1: kms_connect가 성공할 때까지 5초 간격으로 재시도 =====
+	bool kms_connected = false;
+	int fail_count = 0;
+	constexpr int kms_fail_color_max = 10;	// 이 횟수에 도달하면 가장 어두운 red로 고정
+	while (!th.stop_requested())
+	{
+		th.wait_if_paused();
+
+		kms_connected = kms_connect(kms_test_id, kms_test_pw, device_id, index);
+		if (!kms_connected)
+			fail_count++;
+
+		invoke_ui([=]()
 		{
-		}); 
+			CString k_text(_T("K"));
+			m_heatmap.set_cell_text(index, k_text, false);
+
+			if (kms_connected)
+			{
+				// 성공: 녹색 K, 셀 채움색은 기본으로 복원(흰색 계열)
+				m_heatmap.set_cell_color(index, Gdiplus::Color(240, 240, 240), false);
+				m_heatmap.set_cell_text_color(index, Gdiplus::Color::Green, false);
+				CString tip;
+				tip.Format(_T("KMS connected (fail=%d)"), fail_count);
+				m_heatmap.set_cell_tooltip(index, tip, true);
+			}
+			else
+			{
+				// 실패: fail_count가 쌓일수록 연한 pink → 어두운 red로 보간
+				float t = (float)min(fail_count, kms_fail_color_max) / (float)kms_fail_color_max;
+				// 연한 pink (255, 220, 220) → 어두운 red (139, 0, 0)
+				BYTE r = (BYTE)(255 + (139 - 255) * t);
+				BYTE g = (BYTE)(220 + (0   - 220) * t);
+				BYTE b = (BYTE)(220 + (0   - 220) * t);
+				m_heatmap.set_cell_color(index, Gdiplus::Color(r, g, b), false);
+				m_heatmap.set_cell_text_color(index, Gdiplus::Color::Red, false);
+				CString tip;
+				tip.Format(_T("KMS fail × %d"), fail_count);
+				m_heatmap.set_cell_tooltip(index, tip, true);
+			}
+		});
+
+		if (kms_connected)
+			break;
+
+		// 실패 → 5초 후 재시도 (인터럽트 가능)
+		if (!th.sleep_for(std::chrono::milliseconds(5000)))
+			return;
+	}
+
+	if (!kms_connected)	// stop 요청으로 탈출
+		return;
+
+	// ===== Phase 2: request_url을 1회 실행하고 결과 기록 후 스레드 종료 =====
+	CRequestUrlParams param(m_web_server_ip, m_web_server_port, _T("/agent/api/v1.0/server"), _T("GET"));
+	param.connect_timeout_ms = 3000000;
+	param.transfer_timeout_ms = 3000000;
+
+	th.set_on_cancel([&param]() { param.cancel(); });
+
+	if (!m_reachability_cache.is_reachable(m_web_server_ip, m_web_server_port, 1000))
+	{
+		param.status = 0;
+		param.result = _T("server unreachable (cached)");
+	}
+	else
+	{
+		m_reachability_cache.register_request(&param);
+		request_url(&param, false);
+		m_reachability_cache.unregister_request(&param);
+		m_reachability_cache.update(param.status > 0);
+	}
+
+	th.clear_on_cancel();
+
+	if (th.stop_requested())
+		return;
+
+	if (param.status == HTTP_STATUS_OK || param.status == HTTP_STATUS_NOT_FOUND)
+		str.Format(_T("index = %5d, status = %d"), index, param.status);
+	else
+		str.Format(_T("index = %5d, status = %d, result = %s"), index, param.status, param.result);
+	logWrite(_T("%s"), str);
+
+	invoke_ui([this, index, param]()
+	{
+		CString tooltip;
+		if (param.status == HTTP_STATUS_OK)
+		{
+			m_heatmap.set_cell_color(index, Gdiplus::Color(192, 192, 255), false);
+			tooltip.Format(_T("OK (status=%d)"), param.status);
+		}
+		else
+		{
+			m_heatmap.set_cell_color(index, Gdiplus::Color(255, 128, 128), false);
+			tooltip.Format(_T("FAIL (status=%d, %s)"), param.status, param.result);
+		}
+		m_heatmap.set_cell_tooltip(index, tooltip);
+	});
+
+	str.Format(_T("thread %d is terminated.\n"), index);
 	TRACE(_T("%s"), str);
 }
 
@@ -390,6 +378,9 @@ void CTestCSCThreadDlg::OnBnClickedOk()
 
 void CTestCSCThreadDlg::OnBnClickedCancel()
 {
+	// 0단계: 모든 LMM Agent DisConnect + 파괴 (KMS/RFB Recv 루프 깨움, 내부 스레드 join)
+	logout_all_agents();
+
 	// 1단계: 모든 스레드에 중지 신호를 동시에 보낸다 (비차단)
 	for (int i = 0; i < m_heatmap.size(); ++i)
 	{
@@ -411,6 +402,20 @@ void CTestCSCThreadDlg::OnBnClickedCancel()
 	while (::PeekMessage(&msg, GetSafeHwnd(), WM_APP_UI_INVOKE, WM_APP_UI_INVOKE, PM_REMOVE))
 	{
 		delete reinterpret_cast<std::function<void()>*>(msg.lParam);
+	}
+
+	// worker 스레드 종료 후 kms_connect가 다시 m_agents에 에이전트를 넣었을 수 있으므로
+	// 한 번 더 정리한다.
+	logout_all_agents();
+
+	// Shift+Wheel로 조정한 히트맵 셀 크기 저장
+	{
+		CSize sz = m_heatmap.get_cell_size();
+		if (sz.cx > 0 && sz.cy > 0)
+		{
+			AfxGetApp()->WriteProfileInt(_T("setting\\heatmap"), _T("cell_size_cx"), sz.cx);
+			AfxGetApp()->WriteProfileInt(_T("setting\\heatmap"), _T("cell_size_cy"), sz.cy);
+		}
 	}
 
 	CDialogEx::OnCancel();
@@ -473,11 +478,23 @@ void CTestCSCThreadDlg::OnBnClickedButtonAddNew()
 	int index = m_heatmap.add_cell(1);
 	m_heatmap.set_item_data(index, (DWORD_PTR)th);
 
+	// start 전에 카운터를 올려 두어야 thread_function이 먼저 끝나는 경쟁을 피함
+	m_active_thread_count.fetch_add(1);
+
 	th->start([=](CSCThread& t)
 		{
 			//m_list.set_text(index, col_status, _T("start"));
 			thread_function(index, t);
+
+			// 워커 함수가 return되면 스레드 수 감소 + UI에 상태 갱신 요청
+			if (m_active_thread_count.fetch_sub(1) == 1)
+			{
+				// 이 스레드가 마지막이었음
+				invoke_ui([this]() { update_server_combo_state(); });
+			}
 		});
+
+	update_server_combo_state();
 
 	/*
 	int index = m_list.insert_item(-1, i2S(m_list.size()));
@@ -504,21 +521,10 @@ void CTestCSCThreadDlg::OnBnClickedButtonAddNewN()
 
 	AfxGetApp()->WriteProfileInt(_T("setting"), _T("instance number"), n);
 
-	if (IsShiftPressed())
-	{
-		m_server_url = _T("admin.linkmemine.com");
-		m_server_port = 80;
-	}
-	else
-	{
-		m_server_url = _T("dev-admin.linkmemine.com");
-		m_server_port = 443;
-	}
+	logWrite(_T("target web server : %s:%d"), m_web_server_ip, m_web_server_port);
 
-	logWrite(_T("target server : %s:%d"), m_server_url, m_server_port);
-	
 	CString caption;
-	caption.Format(_T("Test_CSCThread (ver %s) - server : %s:%d"), get_file_property(), m_server_url, m_server_port);
+	caption.Format(_T("Test_CSCThread (ver %s) - web : %s:%d"), get_file_property(), m_web_server_ip, m_web_server_port);
 	SetWindowText(caption);
 
 	m_heatmap.set_redraw(false);
@@ -665,4 +671,114 @@ void CTestCSCThreadDlg::OnSize(UINT nType, int cx, int cy)
 	GetClientRect(&rc);
 	rc.bottom -= 50;  // 버튼 영역 확보
 	m_heatmap.MoveWindow(rc);
+}
+
+bool CTestCSCThreadDlg::kms_connect(const CString& id, const CString& pw, const CString& device_id, int index)
+{
+	auto agent = std::make_unique<LMMAgent>();
+	agent->SetEventListener(this);
+
+	BOOL ok = agent->Connect(id, pw, device_id, index);
+
+	{
+		std::lock_guard<std::mutex> lock(m_agents_mutex);
+		if ((int)m_agents.size() <= index) m_agents.resize(index + 1);
+		m_agents[index] = std::move(agent);
+	}
+	return ok == TRUE;
+}
+
+// CLMMEventListener — LMMAgent 워커 스레드에서 호출됨
+void CTestCSCThreadDlg::onWriteLog(COLORREF /*cr*/, CString data)
+{
+	logWrite(_T("%s"), data);
+}
+
+void CTestCSCThreadDlg::onNotifyEvent(int /*event_id*/, int /*param*/)
+{
+}
+
+void CTestCSCThreadDlg::onDisConnectEvent(int /*event_id*/)
+{
+}
+
+void CTestCSCThreadDlg::OnBnClickedButtonLogOut()
+{
+	logout_all_agents();
+}
+
+void CTestCSCThreadDlg::logout_all_agents()
+{
+	// 1) 락은 소유권 이전용으로만 짧게 잡는다. 락을 쥔 채 DisConnect를 부르면
+	//    I/O + 리스너 콜백이 엮여 데드락/UI 블록 여지가 생김.
+	std::vector<std::unique_ptr<LMMAgent>> agents_to_release;
+	{
+		std::lock_guard<std::mutex> lock(m_agents_mutex);
+		agents_to_release.swap(m_agents);
+	}
+
+	// 2) 락 밖에서 모든 연결을 끊는다. 진행 중이던 KMS/RFB Recv 루프도 여기서 깨어남.
+	for (auto& agent : agents_to_release)
+	{
+		if (agent) agent->DisConnect();
+	}
+
+	// 3) agents_to_release가 스코프 종료로 파괴되며 LMMAgent 소멸자가 내부 스레드 join.
+}
+
+void CTestCSCThreadDlg::OnCbnSelchangeComboServer()
+{
+	int index = m_combo_server.GetCurSel();
+	if (index < 0 || index >= m_combo_server.GetCount())
+		return;
+
+	apply_server_selection(index);
+	AfxGetApp()->WriteProfileInt(_T("setting\\server"), _T("index"), index);
+}
+
+void CTestCSCThreadDlg::apply_server_selection(int index)
+{
+	// 각 서버 세트: kms / ap2p / web (포트는 80 통일)
+	struct server_set { LPCTSTR kms; LPCTSTR ap2p; LPCTSTR web; };
+	static const server_set sets[] =
+	{
+		// 0: original lmm 1.0 개발서버
+		{ _T("15.165.82.68"),	_T("3.35.127.253"),	_T("admin.linkmemine.com")	},
+		// 1: lmm 1.0 부하테스트 개발서버
+		{ _T("43.202.221.15"),	_T("3.34.111.205"),	_T("admin.linkmemine.com")	},
+		// 2: lmm 1.0 FastAPI 개발서버
+		{ _T("43.203.70.235"),	_T("13.125.159.72"),_T("dev-admin.linkmemine.com")	},
+	};
+	constexpr int num_sets = sizeof(sets) / sizeof(sets[0]);
+	if (index < 0 || index >= num_sets)
+		return;
+
+	m_kms_server_ip		= sets[index].kms;
+	m_kms_server_port	= 80;
+	m_ap2p_server_ip	= sets[index].ap2p;
+	m_ap2p_server_port	= 80;
+	m_web_server_ip		= sets[index].web;
+	m_web_server_port	= 80;
+
+	// LMMAgent 내부에서도 같은 주소를 사용하도록 주입
+	LMMAgent::SetServers(
+		CStringA(m_kms_server_ip),	m_kms_server_port,
+		CStringA(m_ap2p_server_ip),	m_ap2p_server_port);
+
+	logWrite(_T("server set[%d] kms=%s:%d  ap2p=%s:%d  web=%s:%d"),
+		index,
+		m_kms_server_ip,	m_kms_server_port,
+		m_ap2p_server_ip,	m_ap2p_server_port,
+		m_web_server_ip,	m_web_server_port);
+
+	CString caption;
+	caption.Format(_T("Test_CSCThread (ver %s) - web : %s:%d"),
+		get_file_property(), m_web_server_ip, m_web_server_port);
+	SetWindowText(caption);
+}
+
+void CTestCSCThreadDlg::update_server_combo_state()
+{
+	if (m_combo_server.GetSafeHwnd())
+		m_combo_server.EnableWindow(is_any_thread_running() ? FALSE : TRUE);
 }

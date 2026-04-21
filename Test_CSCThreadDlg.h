@@ -4,17 +4,24 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
+#include <memory>
+#include <mutex>
+#include <vector>
 #include "Common/colors.h"
 #include "Common/ResizeCtrl.h"
 #include "Common/CEdit/SCEdit/SCEdit.h"
 #include "Common/thread/CSCThread/SCThread.h"
 #include "Common/CButton/GdiButton/GdiButton.h"
 #include "Common/CDialog/CSCHeatmapCtrl/SCHeatmapCtrl.h"
+#include "Common/CComboBox/SCComboBox/SCComboBox.h"
+#include "LMMAgent.h"
+#include "LMMEventListener.h"
 
 
 // CTestCSCThreadDlg 대화 상자
-class CTestCSCThreadDlg : public CDialogEx
+class CTestCSCThreadDlg : public CDialogEx, public CLMMEventListener
 {
 // 생성입니다.
 public:
@@ -30,9 +37,40 @@ public:
 	int					m_index = -1;
 	void				update_button_state();
 
-	CString				m_server_url;
-	int					m_server_port;
+	// 서버 콤보(m_combo_server)의 선택에 의해 세팅되는 6개 변수.
+	// index 0: original lmm 1.0 개발서버
+	// index 1: lmm 1.0 부하테스트 개발서버
+	// index 2: lmm 1.0 FastAPI 개발서버
+	CString				m_kms_server_ip;
+	int					m_kms_server_port	= 80;
+	CString				m_ap2p_server_ip;
+	int					m_ap2p_server_port	= 80;
+	CString				m_web_server_ip;
+	int					m_web_server_port	= 80;
+
+	// 콤보 인덱스(0~2)에 따라 6개 서버 변수 세팅 + LMMAgent::SetServers() 주입.
+	void				apply_server_selection(int index);
+	// 실행 중인 스레드가 하나라도 있으면 true (워커 함수가 return되면 감소).
+	std::atomic<int>	m_active_thread_count{ 0 };
+	bool				is_any_thread_running() { return m_active_thread_count.load() > 0; }
+	// 스레드 실행 상태에 따라 서버 콤보 enable/disable 갱신.
+	void				update_server_combo_state();
+
 	CServerReachabilityCache m_reachability_cache{ 3000 };
+
+	// kms_connect (LMM Agent) 관련
+	bool				kms_connect(const CString& id, const CString& pw, const CString& device_id, int index);
+	std::vector<std::unique_ptr<LMMAgent>>	m_agents;
+	std::mutex			m_agents_mutex;
+
+	// 모든 에이전트 소유권을 락 밖으로 빼낸 뒤 DisConnect → 소멸시켜 일괄 정리.
+	// Logout 버튼과 프로그램 종료 경로에서 공용 사용.
+	void				logout_all_agents();
+
+	// CLMMEventListener 구현 — 워커 스레드에서 호출되므로 UI 접근은 invoke_ui 경유
+	virtual void onWriteLog(COLORREF cr, CString data) override;
+	virtual void onNotifyEvent(int event_id, int param = 0) override;
+	virtual void onDisConnectEvent(int event_id) override;
 
 // 대화 상자 데이터입니다.
 #ifdef AFX_DESIGN_TIME
@@ -83,4 +121,7 @@ public:
 	afx_msg void OnBnClickedButtonAddNewN();
 	CSCEdit m_edit_instance;
 	afx_msg void OnSize(UINT nType, int cx, int cy);
+	afx_msg void OnBnClickedButtonLogOut();
+	CSCComboBox m_combo_server;
+	afx_msg void OnCbnSelchangeComboServer();
 };

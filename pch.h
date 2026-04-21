@@ -10,4 +10,8 @@
 // 여기에 미리 컴파일하려는 헤더 추가
 #include "framework.h"
 
+// blastsock + LMMAgent 병합용 추가 헤더
+#include <afxsock.h>
+#include <gdiplus.h>
+
 #endif //PCH_H

@@ -4,4 +4,6 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="Test_CSCThread.vcxproj" />
+  <Project Path="D:\1.Projects_C++\knoconnectiontester\blastsocklib\blastsocklib.vcxproj" Id="00b2f2dc-eb71-797c-0f64-d873fc8c0f4b" />
+  <Project Path="D:\1.Projects_C++\knoconnectiontester\blastsocklib\cryptopp890\cryptlib.vcxproj" Id="c39f4b46-6e89-4074-902e-ca57073044d2" />
 </Solution>

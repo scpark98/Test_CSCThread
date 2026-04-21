@@ -49,6 +49,11 @@ BOOL CTestCSCThreadApp::InitInstance()
 
 	CWinApp::InitInstance();
 
+	if (!AfxSocketInit())
+	{
+		AfxMessageBox(_T("AfxSocketInit failed."));
+		return FALSE;
+	}
 
 	AfxEnableControlContainer();
 
@@ -69,8 +74,8 @@ BOOL CTestCSCThreadApp::InitInstance()
 	SetRegistryKey(_T("Koino"));
 
 	gLog.use_filename_timestamp();
-	gLog.show_function_name(false);
-	gLog.show_line_number(false);
+	//gLog.show_function_name(false);
+	//gLog.show_line_number(false);
 	gLog.write_start_log();
 
 	CTestCSCThreadDlg dlg;

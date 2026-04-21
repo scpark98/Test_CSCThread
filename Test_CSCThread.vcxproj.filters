@@ -16,6 +16,9 @@
     <Filter Include="Common">
       <UniqueIdentifier>{6b6cc18f-04fe-4b31-80a7-fb244f985321}</UniqueIdentifier>
     </Filter>
+    <Filter Include="LMM">
+      <UniqueIdentifier>{a3e05d90-9f1c-4f42-9a4a-7b7a2b5d9c11}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Test_CSCThread.h">
@@ -69,6 +72,27 @@
     <ClInclude Include="..\..\Common\directx\CSCD2Context\SCD2Context.h">
       <Filter>Common</Filter>
     </ClInclude>
+    <ClInclude Include="LMMAgent.h">
+      <Filter>LMM</Filter>
+    </ClInclude>
+    <ClInclude Include="LMMDefines.h">
+      <Filter>LMM</Filter>
+    </ClInclude>
+    <ClInclude Include="LMMEventListener.h">
+      <Filter>LMM</Filter>
+    </ClInclude>
+    <ClInclude Include="KNODefines.h">
+      <Filter>LMM</Filter>
+    </ClInclude>
+    <ClInclude Include="kmsProto.h">
+      <Filter>LMM</Filter>
+    </ClInclude>
+    <ClInclude Include="Util.h">
+      <Filter>LMM</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Common\CComboBox\SCComboBox\SCComboBox.h">
+      <Filter>Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Test_CSCThread.cpp">
@@ -111,6 +135,15 @@
       <Filter>Common</Filter>
     </ClCompile>
     <ClCompile Include="..\..\Common\directx\CSCD2Context\SCD2Context.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="LMMAgent.cpp">
+      <Filter>LMM</Filter>
+    </ClCompile>
+    <ClCompile Include="Util.cpp">
+      <Filter>LMM</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Common\CComboBox\SCComboBox\SCComboBox.cpp">
       <Filter>Common</Filter>
     </ClCompile>
   </ItemGroup>

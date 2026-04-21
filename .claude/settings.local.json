@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp \"D:/1.Projects_C++/knoconnectiontester/KNOConnectionTester/LMMAgent.h\" \"D:/1.Projects_C++/1.test/Test_CSCThread/LMMAgent.h\")",
+      "Bash(cp \"D:/1.Projects_C++/knoconnectiontester/KNOConnectionTester/LMMAgent.cpp\" \"D:/1.Projects_C++/1.test/Test_CSCThread/LMMAgent.cpp\")",
+      "Bash(cp \"D:/1.Projects_C++/knoconnectiontester/KNOConnectionTester/LMMEventListener.h\" \"D:/1.Projects_C++/1.test/Test_CSCThread/LMMEventListener.h\")",
+      "Bash(cp \"D:/1.Projects_C++/knoconnectiontester/KNOConnectionTester/LMMDefines.h\" \"D:/1.Projects_C++/1.test/Test_CSCThread/LMMDefines.h\")",
+      "Bash(cp \"D:/1.Projects_C++/knoconnectiontester/KNOConnectionTester/KNODefines.h\" \"D:/1.Projects_C++/1.test/Test_CSCThread/KNODefines.h\")",
+      "Bash(git submodule *)",
+      "Bash(git -C \"D:/1.Projects_C++/knoconnectiontester\" status)"
+    ]
+  }
+}
