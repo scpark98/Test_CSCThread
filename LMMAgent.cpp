@@ -153,7 +153,7 @@ BOOL LMMAgent::Connect(CString id, CString pw, CString deviceId, int index)
 					continue;
 				}
 
-				m_kmsSocket.SetTimeout(30000); // Timeout설정 (30초)
+				m_kmsSocket.SetTimeout(30000000); // Timeout설정 (30초)
 
 				// 암호화
 				auto t0 = std::chrono::steady_clock::now();
